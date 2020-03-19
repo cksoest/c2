@@ -11,6 +11,7 @@
  */
 
 #include <stdio.h>     // printf()
+#include <mpi.h>
 #include <limits.h>    // UINT_MAX
 
 int checkCircuit (int, long);
@@ -18,18 +19,35 @@ int checkCircuit (int, long);
 int main (int argc, char *argv[]) {
    long i;               // loop variable (64 bits) 
    int id = 0;           // process id 
-   int count = 0;        // number of solutions 
+   int count = 0;        // number of solutions
+   int numProcesses = 0;
+   int reducedCount = 0;
 
-   printf ("\nProcess %d is checking the circuit...\n", id);
+   double startTime = 0.0, totalTime = 0.0;
+   startTime = MPI_Wtime();
 
-   for (i = 0; i <= UINT_MAX; i++) {
+   MPI_Init(&argc, &argv);
+   MPI_Comm_rank(MPI_COMM_WORLD, &id);
+   MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
+
+   printf ("\nProcess %d  is checking the circuit...\n", id);
+
+   for (i = id; i <= UINT_MAX; i += numProcesses) {
       count += checkCircuit (id, i);
    }
 
-   printf ("Process %d finished.\n", id);
+   MPI_Reduce(&count, &reducedCount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+   if (id == 0) {
+      totalTime = MPI_Wtime() - startTime;
+      printf ("\nFinished in %f seconds.\n", totalTime);
+      printf("\nA total of %d solutions were found.\n", reducedCount);
+   }
+
+   MPI_Finalize();
+
    fflush (stdout);
 
-   printf("\nA total of %d solutions were found.\n\n", count);
    return 0;
 }
 
